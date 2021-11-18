@@ -1,7 +1,13 @@
 import {Model} from "objection";
 // import {makeExecutableSchema} from "@graphql-tools/schema";
 
-type Options = { mutationOptions?: MutationOptions, queryOptions?: QueryOptions, extendQueries?: string, extendMutations?: string, extendTypes?: string }
+// type CustomResolver = { [index in string]?: any; }
+type CustomResolver = any
+type Options = {
+    mutationOptions?: MutationOptions, queryOptions?: QueryOptions, extendQueries?: string,
+    extendMutations?: string, extendTypes?: string, extendResolvers?: CustomResolver,
+    extendMutationResolvers?: CustomResolver, extendQueryResolvers?: CustomResolver
+}
 type ModelsObject = { [index: string]: typeof Model }
 type ArgumentKeys =
     'eq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'isNull' | 'likeNoCase' | 'in' | 'notIn' | 'orderBy'
@@ -18,6 +24,10 @@ class SchemaBuilder {
     extendTypes = ''
     extendQueries = ''
     extendMutations = ''
+    extendResolvers: CustomResolver = {}
+    extendMutationResolvers: CustomResolver = {}
+    extendQueryResolvers: CustomResolver = {}
+
 
     constructor(models: (typeof Model)[], options?: Options) {
         this.models = models.reduce<ModelsObject>((models, model) => ({
@@ -30,6 +40,9 @@ class SchemaBuilder {
         if (options.extendTypes) this.extendTypes = options.extendTypes
         if (options.extendQueries) this.extendQueries = options.extendQueries
         if (options.extendMutations) this.extendMutations = options.extendMutations
+        if (options.extendResolvers) this.extendResolvers = options.extendResolvers
+        if (options.extendMutationResolvers) this.extendMutationResolvers = options.extendMutationResolvers
+        if (options.extendQueryResolvers) this.extendQueryResolvers = options.extendQueryResolvers
     }
 
     buildModelTypeDefs() {
@@ -136,7 +149,7 @@ delete${model.name}(id: Int!): Boolean
                     return queryBuilder
                 }
         }
-        return queryResolvers
+        return {...queryResolvers, ...this.extendQueryResolvers}
     }
 
     buildMutationResolvers() {
@@ -154,7 +167,7 @@ delete${model.name}(id: Int!): Boolean
                 return Boolean(await model.query().deleteById(args.id))
             }
         }
-        return mutationResolvers
+        return {...mutationResolvers, ...this.extendMutationResolvers}
     }
 
     buildResolvers() {
@@ -190,7 +203,11 @@ delete${model.name}(id: Int!): Boolean
                 })
             resolvers[model.name] = resolver
         }
-        return {...resolvers, Query: this.buildQueryResolvers(), Mutation: this.buildMutationResolvers()}
+        return {
+            ...resolvers,
+            Query: this.buildQueryResolvers(),
+            Mutation: this.buildMutationResolvers(), ...this.extendResolvers
+        }
     }
 
     build() {

@@ -1,11 +1,12 @@
 {
   "name": "objection-graphql-generator",
-  "version": "0.0.1",
+  "version": "0.0.23",
   "description": "Objection graphql schema generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "prepublish": "tsc"
   },
   "author": "Furkan Demir",
   "license": "MIT",
