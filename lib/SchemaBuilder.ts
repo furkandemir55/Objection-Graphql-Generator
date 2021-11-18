@@ -1,5 +1,5 @@
 import {Model} from "objection";
-import {makeExecutableSchema} from "@graphql-tools/schema";
+// import {makeExecutableSchema} from "@graphql-tools/schema";
 
 type Options = { mutationOptions?: MutationOptions, queryOptions?: QueryOptions, extendQueries?: string, extendMutations?: string, extendTypes?: string }
 type ModelsObject = { [index: string]: typeof Model }
@@ -82,7 +82,6 @@ ${key}: ${resolveType(fieldType)}`
         }
         return modelTypeDefs
     }
-
 
     buildQueryTypeDefs() {
         let queryTypeDefs = `\ntype Query{`
@@ -195,7 +194,7 @@ delete${model.name}(id: Int!): Boolean
     }
 
     build() {
-        return makeExecutableSchema({typeDefs: this.buildTypeDefs(), resolvers: this.buildResolvers()})
+        return {typeDefs: this.buildTypeDefs(), resolvers: this.buildResolvers()}
     }
 }
 

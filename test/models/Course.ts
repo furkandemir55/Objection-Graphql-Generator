@@ -1,5 +1,5 @@
 import {Model} from "objection";
-import Category from "./Category";
+// import Category from "./Category";
 import CustomModel from "./CustomModel";
 
 export default class Course extends CustomModel {
@@ -7,7 +7,7 @@ export default class Course extends CustomModel {
     description?: string | null
     categoryId?: number | null
 
-    category?: Category
+    // category?: Category
 
     static get tableName() {
         return 'course'

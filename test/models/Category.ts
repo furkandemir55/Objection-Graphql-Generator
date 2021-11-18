@@ -33,6 +33,7 @@ export default class Category extends CustomModel {
 
     static get relationMappings() {
         const COURSE = require('./Course').default
+        const CATEGORY = require('./Category').default
         return {
             courses: {
                 graphql: true,
@@ -50,7 +51,7 @@ export default class Category extends CustomModel {
                 connectType: 'many',
                 graphqlName: 'childCategories',
                 relation: Model.HasManyRelation,
-                modelClass: Category,
+                modelClass: CATEGORY,
                 join: {
                     from: 'category.id',
                     to: 'category.parentCategoryId'
@@ -61,7 +62,7 @@ export default class Category extends CustomModel {
                 connectType: 'one',
                 graphqlName: 'parentCategory',
                 relation: Model.BelongsToOneRelation,
-                modelClass: Category,
+                modelClass: CATEGORY,
                 join: {
                     from: 'category.parentCategoryId',
                     to: 'category.id'

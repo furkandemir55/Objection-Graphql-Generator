@@ -10,8 +10,6 @@
   "author": "Furkan Demir",
   "license": "MIT",
   "dependencies": {
-    "@graphql-tools/schema": "^8.3.1",
-    "graphql": "^16.0.1",
     "objection": "^3.0.0"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
-import SchemaBuilder from "../lib/SchemaBuilder";
 import Course from "./models/Course";
 import Category from "./models/Category";
+import index from '../index'
 
-const a = new SchemaBuilder([Course,Category])
-
-console.log(a.build())
+const a = new index.SchemaBuilder([Course,Category])
+//
+// console.log(a.build())
