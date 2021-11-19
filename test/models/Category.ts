@@ -1,16 +1,7 @@
 import {Model} from "objection";
-import Course from "./Course";
-import CustomModel from "./CustomModel";
+import CustomModel from "../../lib/CustomModel";
 
 export default class Category extends CustomModel {
-    name!: string | null
-    description?: string | null
-    parentCategoryId?: number | null
-
-
-    parent?: Category
-    children?: Category[]
-    courses?: Course[]
 
     static get tableName() {
         return 'category'
@@ -25,10 +16,15 @@ export default class Category extends CustomModel {
                 description: {type: 'string'},
                 parentCategoryId: {type: 'integer'},
                 parentCategory: {type: 'object', relationName: 'parent'},
-                childCategories: {type: 'object',relationName: 'children'},
+                childCategories: {type: 'object', relationName: 'children'},
                 courses: {type: 'object'},
             }
         }
+    }
+
+    static graphqlOptions = {
+        generateDefaultQueries: false,
+        generateDefaultMutations: false
     }
 
     static get relationMappings() {

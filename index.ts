@@ -1,3 +1,5 @@
 import SchemaBuilder from "./lib/SchemaBuilder";
-// const SchemaBuilder = require('./lib/SchemaBuilder')
-export default {SchemaBuilder: SchemaBuilder}
+import CustomModel from "./lib/CustomModel";
+
+export  { SchemaBuilder, CustomModel}
+export default {SchemaBuilder: SchemaBuilder, CustomModel: CustomModel}

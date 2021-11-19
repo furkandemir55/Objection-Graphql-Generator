@@ -1,13 +1,10 @@
 import {Model} from "objection";
-// import Category from "./Category";
-import CustomModel from "./CustomModel";
+import CustomModel from "../../lib/CustomModel";
 
 export default class Course extends CustomModel {
-    name!: string | null
-    description?: string | null
-    categoryId?: number | null
-
-    // category?: Category
+    name?: string
+    description?:string
+    category?: any
 
     static get tableName() {
         return 'course'
@@ -24,6 +21,11 @@ export default class Course extends CustomModel {
                 category: {type: 'object'},
             }
         }
+    }
+
+    static graphqlOptions = {
+        generateDefaultQueries: true,
+        generateDefaultMutations: true
     }
 
     static get relationMappings() {

@@ -1,12 +1,13 @@
 {
   "name": "objection-graphql-generator",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "Objection graphql schema generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "prebuild": "mocha -r ts-node/register test/test.ts --exit",
     "build": "tsc",
-    "prepublish": "tsc"
+    "prepublish": "npm run build"
   },
   "author": "Furkan Demir",
   "license": "MIT",
@@ -14,9 +15,17 @@
     "objection": "^3.0.0"
   },
   "devDependencies": {
-    "ts-node": "^10.4.0",
-    "typescript": "^4.5.2",
+    "@graphql-tools/schema": "^8.3.1",
+    "@types/chai": "^4.2.22",
+    "@types/mocha": "^9.0.0",
     "@types/node": "^16.11.7",
-    "nodemon": "^2.0.15"
+    "chai": "^4.3.4",
+    "graphql": "^16.0.1",
+    "knex": "^0.95.14",
+    "mocha": "^9.1.3",
+    "nodemon": "^2.0.15",
+    "sqlite3": "^5.0.2",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.2"
   }
 }
