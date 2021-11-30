@@ -1,6 +1,6 @@
 {
   "name": "objection-graphql-generator",
-  "version": "0.0.44",
+  "version": "0.0.44.1",
   "description": "Objection graphql schema generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,11 @@
     "build": "tsc",
     "prepublish": "npm run build"
   },
-  "author": "Furkan Demir",
+  "author": {
+    "name": "Furkan Demir",
+    "email": "furkaaandemir@gmail.com",
+    "url": "https://github.com/furkandemir55"
+  },
   "license": "MIT",
   "dependencies": {
     "objection": "^3.0.0",
@@ -29,5 +33,10 @@
     "sqlite3": "^5.0.2",
     "ts-node": "^10.4.0",
     "typescript": "^4.5.2"
+  },
+  "homepage": "https://github.com/furkandemir55/Objection-Graphql-Generator.git",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/furkandemir55/Objection-Graphql-Generator.git"
   }
 }
