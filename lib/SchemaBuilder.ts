@@ -1,22 +1,26 @@
-import {Model} from "objection";
-import CustomModel, {SchemaDefinition} from "./CustomModel";
+import CustomModel from "./CustomModel";
+import {
+    builderQueryTypeDefs,
+    buildTypeDefs,
+    customFunctionHandler,
+    getRegularFields,
+    handleOptions,
+    handleRelationMain,
+    isSchema,
+    queryResolver
+} from "./utils";
+import {
+    CustomFunction,
+    CustomResolver,
+    JSONSchemaProperties,
+    ModelsObject,
+    MutationOptions,
+    Options,
+    QueryOptions
+} from "./types";
+
 // import {makeExecutableSchema} from "@graphql-tools/schema";
 
-// type CustomResolver = { [index in string]?: any; }
-type CustomResolver = any
-type Options = {
-    mutationOptions?: MutationOptions, queryOptions?: QueryOptions, extendQueries?: string,
-    extendMutations?: string, extendTypes?: string, extendResolvers?: CustomResolver,
-    extendMutationResolvers?: CustomResolver, extendQueryResolvers?: CustomResolver,
-    defaultProperties?: { [index: string]: SchemaDefinition }
-}
-type ModelsObject = { [index: string]: typeof CustomModel }
-type ArgumentKeys =
-    'eq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'isNull' | 'likeNoCase' | 'in' | 'notIn' | 'orderBy'
-    | 'orderByDesc' | 'range' | 'limit' | 'offset'
-type ArgumentType = string | false
-type QueryOptions = { [index in ArgumentKeys]?: ArgumentType; } | boolean;
-type MutationOptions = { create: boolean, update: boolean, delete: boolean } | boolean
 
 class SchemaBuilder {
     models: ModelsObject = {}
@@ -28,28 +32,20 @@ class SchemaBuilder {
     extendResolvers: CustomResolver = {}
     extendMutationResolvers: CustomResolver = {}
     extendQueryResolvers: CustomResolver = {}
-    defaultProperties: { [p: string]: SchemaDefinition } = {}
+    extendProps: JSONSchemaProperties = {}
 
+    customQueryFunctionSingle?: CustomFunction
+    customQueryFunctionMulti?: CustomFunction
+    customMutationFunctionCreate?: CustomFunction
+    customMutationFunctionUpdate?: CustomFunction
+    customMutationFunctionDelete?: CustomFunction
 
     constructor(models: (typeof CustomModel)[], options?: Options) {
         this.models = models.reduce<ModelsObject>((models, model) => ({
             ...models,
             [model.name]: model
         }), {});
-        if (!options) return
-        if (options.queryOptions) this.queryOptions = options.queryOptions;
-        if (options.mutationOptions) this.mutationOptions = options.mutationOptions
-        if (options.extendTypes) this.extendTypes = options.extendTypes
-        if (options.extendQueries) this.extendQueries = options.extendQueries
-        if (options.extendMutations) this.extendMutations = options.extendMutations
-        if (options.extendResolvers) this.extendResolvers = options.extendResolvers
-        if (options.extendMutationResolvers) this.extendMutationResolvers = options.extendMutationResolvers
-        if (options.extendQueryResolvers) this.extendQueryResolvers = options.extendQueryResolvers
-        if (options.defaultProperties) this.defaultProperties = options.defaultProperties
-    }
-
-    getPrimaryField(model: typeof CustomModel) {
-        return model.graphqlOptions?.primaryField || 'id'
+        handleOptions(this, options)
     }
 
     buildModelTypeDefs() {
@@ -72,15 +68,13 @@ input ${model.name}UpdateInput {`
 
             const fields = model.jsonSchema.properties
             if (!fields) throw new Error(`${model.name} jsonSchema properties is missing`)
-            const fields2: typeof fields = this.defaultProperties
+            const fields2: typeof fields = this.extendProps
             const ff: typeof fields[] = []
-            if (fields) ff.push(fields)
-            if (fields2) ff.push(fields2)
+            if (isSchema(fields)) ff.push(fields)
+            if (isSchema(fields2)) ff.push(fields2)
 
-            console.log(ff)
             ff.forEach(f => {
                 Object.keys(f).forEach(key => {
-                    console.log(key)
                     const field: { relationName: string, type: string } = fields[key] as any || fields2[key]
                     const fieldType = field.type
                     if (fieldType === 'object') {
@@ -88,14 +82,7 @@ input ${model.name}UpdateInput {`
                         const relation = relationMappings[key] || relationMappings[field.relationName]
                         const relatedModel = relation.connectModel || relation.modelClass
                         const relatedModelName = relatedModel.name
-                        const relationType = relation.relation
-                        if (relationType === Model.HasManyRelation) {
-                            modelTypeDef += `
-${key}: [${relatedModelName}]`
-                        } else {
-                            modelTypeDef += `
-${key}: ${relatedModelName}`
-                        }
+                        modelTypeDef += buildTypeDefs(key, relatedModelName, {...fields, ...fields2}, relation.relation)
                     } else {
                         modelTypeDef += `
 ${key}: ${resolveType(fieldType)}`
@@ -120,12 +107,15 @@ ${key}: ${resolveType(fieldType)}`
         for (const key of Object.keys(this.models)) {
             const model = this.models[key]
             const camelCaseName = `${model.name.charAt(0).toLowerCase()}${model.name.substring(1)}`
-            const idField = this.getPrimaryField(model)
+            const idField = model.idColumn
+            const fields = getRegularFields(model, this.extendProps)
+
             if (model.graphqlOptions?.generateDefaultQueries)
-                queryTypeDefs += `
-${camelCaseName}(${idField}: Int!): ${model.name}
-${camelCaseName}s(${idField}Array: [Int]): [${model.name}]
-`
+                queryTypeDefs += builderQueryTypeDefs(fields, model.name)
+//                 queryTypeDefs += `
+// ${camelCaseName}(${idField}: Int!): ${model.name}
+// ${camelCaseName}s(${idField}Array: [Int]): [${model.name}]
+// `
         }
         queryTypeDefs += this.extendQueries + '\n}'
         return queryTypeDefs
@@ -137,8 +127,8 @@ ${camelCaseName}s(${idField}Array: [Int]): [${model.name}]
         for (const key of Object.keys(this.models)) {
             const model = this.models[key]
             const camelCaseName = `${model.name.charAt(0).toLowerCase()}${model.name.substring(1)}`
-            const idField = this.getPrimaryField(model)
-            if (model.graphqlOptions?.generateDefaultMutations)
+            const idField = model.idColumn
+            if (model.graphqlOptions?.generateDefaultMutations && typeof idField === 'string')
                 mutationTypeDefs += `
 create${model.name}(${camelCaseName}: ${model.name}CreateInput!): ${model.name}!
 update${model.name}(${idField}: Int!, ${camelCaseName}: ${model.name}UpdateInput!): ${model.name}!
@@ -160,17 +150,21 @@ delete${model.name}(${idField}: Int!): Boolean
             const camelCaseName = `${model.name.charAt(0).toLowerCase()}${model.name.substring(1)}`
             if (model.graphqlOptions?.generateDefaultQueries) {
                 queryResolvers[camelCaseName] = async (root: any, args: any, context: any, info: any) => {
-                    return model.query().findById(args.id).throwIfNotFound().select()
+                    const builder = model.query()
+                    handleRelationMain(builder, args)
+                    const customFunctionResult = await customFunctionHandler(this.customQueryFunctionSingle, root, args, context, info)
+                    if (customFunctionResult) return customFunctionResult
+                    return queryResolver(builder, info)
                 }
                 queryResolvers[`${camelCaseName}s`] =
                     async (root: any, args: any, context: any, info: any) => {
-                        const {idArray} = args
-                        const queryBuilder = model.query().select()
-                        if (idArray) queryBuilder.findByIds(args.idArray as number[])
-                        return queryBuilder
+                        const builder = model.query()
+                        handleRelationMain(builder, args)
+                        const customFunctionResult = await customFunctionHandler(this.customQueryFunctionMulti, root, args, context, info)
+                        if (customFunctionResult) return customFunctionResult
+                        return queryResolver(builder, info)
                     }
             }
-
             if (model.graphqlOptions && model.graphqlOptions.queryResolvers) queryResolvers = {...queryResolvers, ...model.graphqlOptions.queryResolvers}
 
         }
@@ -181,15 +175,23 @@ delete${model.name}(${idField}: Int!): Boolean
         let mutationResolvers: any = {}
         for (const key of Object.keys(this.models)) {
             const model = this.models[key]
+            const camelCaseName = `${model.name.charAt(0).toLowerCase()}${model.name.substring(1)}`
+            const idField = model.idColumn
 
-            if (model.graphqlOptions?.generateDefaultMutations) {
+            if (model.graphqlOptions?.generateDefaultMutations && typeof idField === 'string') {
                 mutationResolvers[`create${model.name}`] = async (root: any, args: any, context: any, info: any) => {
-                    return model.query().insert(args.role).returning('*')
+                    const customFunctionResult = await customFunctionHandler(this.customMutationFunctionCreate, root, args, context, info)
+                    if (customFunctionResult) return customFunctionResult
+                    return model.query().insert(args[camelCaseName]).returning('*')
                 }
                 mutationResolvers[`update${model.name}`] = async (root: any, args: any, context: any, info: any) => {
-                    return model.query().patchAndFetchById(args.id, args.role).returning('*')
+                    const customFunctionResult = await customFunctionHandler(this.customMutationFunctionUpdate, root, args, context, info)
+                    if (customFunctionResult) return customFunctionResult
+                    return model.query().patchAndFetchById(args.id, args[camelCaseName]).returning('*').throwIfNotFound()
                 }
-                mutationResolvers[`delete${model.name}`] = async (root: any, args: any, context: any) => {
+                mutationResolvers[`delete${model.name}`] = async (root: any, args: any, context: any, info: any) => {
+                    const customFunctionResult = await customFunctionHandler(this.customMutationFunctionDelete, root, args, context, info)
+                    if (customFunctionResult) return customFunctionResult
                     return Boolean(await model.query().deleteById(args.id))
                 }
             }
@@ -201,44 +203,45 @@ delete${model.name}(${idField}: Int!): Boolean
 
     buildResolvers() {
         const resolvers: any = {}
-        for (const key of Object.keys(this.models)) {
-            const model = this.models[key]
-            const resolver: any = {}
-            if (model.relationMappings)
-                Object.keys(model.relationMappings).forEach((a) => {
-                    const b: any = model.relationMappings
-                    const relation = b[a]
-                    const relationName = b[a].graphqlName || a
-                    if (!relation.graphql) return
-                    console.dir(relation.relation, {depth: null})
-                    switch (relation.relation) {
-                        case Model.HasOneRelation:
-                        case Model.BelongsToOneRelation:
-                            resolver[relationName] = async (parent: any, args: any, context: any, info: any) => {
-                                const res = await model.relatedQuery(a).for(parent.id!).select()
-                                return res[0]
-                            }
-                            break;
-                        case Model.HasManyRelation:
-                            if (Object.keys(relation.join).includes('through')) {
-                                resolver[relationName] = async (parent: any, args: any, context: any, info: any) => {
-                                    const r = await model.relatedQuery(relation.connectQuery).for(parent.id!).select('id')
-                                    return relation.modelClass.relatedQuery(a).for(r.map((cr: any) => cr.id!)).select()
-                                }
-                            } else {
-                                resolver[relationName] = async (parent: any, args: any, context: any, info: any) => {
-                                    return model.relatedQuery(a).for(parent.id!).select()
-                                }
-                            }
-                            break;
-                    }
-                })
-            resolvers[model.name] = resolver
-        }
+        //deprecated
+        // for (const key of Object.keys(this.models)) {
+        //     const model = this.models[key]
+        //     const resolver: any = {}
+        //     if (model.relationMappings)
+        //         Object.keys(model.relationMappings).forEach((a) => {
+        //             const b: any = model.relationMappings
+        //             const relation = b[a]
+        //             const relationName = b[a].graphqlName || a
+        //             if (!relation.graphql) return
+        //             switch (relation.relation) {
+        //                 case Model.HasOneRelation:
+        //                 case Model.BelongsToOneRelation:
+        //                     resolver[relationName] = async (parent: any, args: any, context: any, info: any) => {
+        //                         const res = await model.relatedQuery(a).for(parent.id!).select()
+        //                         return res[0]
+        //                     }
+        //                     break;
+        //                 case Model.HasManyRelation:
+        //                     if (Object.keys(relation.join).includes('through')) {
+        //                         resolver[relationName] = async (parent: any, args: any, context: any, info: any) => {
+        //                             const r = await model.relatedQuery(relation.connectQuery).for(parent.id!).select('id')
+        //                             return relation.modelClass.relatedQuery(a).for(r.map((cr: any) => cr.id!)).select()
+        //                         }
+        //                     } else {
+        //                         resolver[relationName] = async (parent: any, args: any, context: any, info: any) => {
+        //                             return model.relatedQuery(a).for(parent.id!).select()
+        //                         }
+        //                     }
+        //                     break;
+        //             }
+        //         })
+        //     // resolvers[model.name] = resolver
+        // }
         return {
             ...resolvers,
             Query: this.buildQueryResolvers(),
-            Mutation: this.buildMutationResolvers(), ...this.extendResolvers
+            Mutation: this.buildMutationResolvers(),
+            ...this.extendResolvers
         }
     }
 

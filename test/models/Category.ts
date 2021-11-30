@@ -1,7 +1,6 @@
-import {Model} from "objection";
-import CustomModel from "../../lib/CustomModel";
+import Model from "../../lib/CustomModel";
 
-export default class Category extends CustomModel {
+export default class Category extends Model {
 
     static get tableName() {
         return 'category'
@@ -15,8 +14,8 @@ export default class Category extends CustomModel {
                 name: {type: 'string'},
                 description: {type: 'string'},
                 parentCategoryId: {type: 'integer'},
-                parentCategory: {type: 'object', relationName: 'parent'},
-                childCategories: {type: 'object', relationName: 'children'},
+                parentCategory: {type: 'object'},
+                childCategories: {type: 'object'},
                 courses: {type: 'object'},
             }
         }
@@ -42,10 +41,9 @@ export default class Category extends CustomModel {
                 }
 
             },
-            children: {
+            childCategories: {
                 graphql: true,
                 connectType: 'many',
-                graphqlName: 'childCategories',
                 relation: Model.HasManyRelation,
                 modelClass: CATEGORY,
                 join: {
@@ -53,10 +51,9 @@ export default class Category extends CustomModel {
                     to: 'category.parentCategoryId'
                 }
             },
-            parent: {
+            parentCategory: {
                 graphql: true,
                 connectType: 'one',
-                graphqlName: 'parentCategory',
                 relation: Model.BelongsToOneRelation,
                 modelClass: CATEGORY,
                 join: {

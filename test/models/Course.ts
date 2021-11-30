@@ -1,9 +1,8 @@
-import {Model} from "objection";
-import CustomModel from "../../lib/CustomModel";
+import Model from "../../lib/CustomModel";
 
-export default class Course extends CustomModel {
+export default class Course extends Model {
     name?: string
-    description?:string
+    description?: string
     category?: any
 
     static get tableName() {

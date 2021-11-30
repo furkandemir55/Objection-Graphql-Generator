@@ -9,8 +9,7 @@ import CustomModel from "../lib/CustomModel";
 import * as fs from "fs";
 import index from '../index'
 import SchemaBuilder from "../lib/SchemaBuilder";
-import {graphql, buildSchema} from "graphql";
-import {makeExecutableSchema} from "@graphql-tools/schema";
+import Objection from "objection";
 
 //
 // console.log(a.build())
@@ -18,7 +17,11 @@ import {makeExecutableSchema} from "@graphql-tools/schema";
 describe('Testing module', (() => {
     let db: Knex, schemaBuilder: SchemaBuilder, models: (typeof CustomModel)[];
     before(() => {
-        fs.unlinkSync(join(os.tmpdir(), 'graphqltest2.db'))
+        try {
+            fs.unlinkSync(join(os.tmpdir(), 'graphqltest2.db'))
+        } catch {
+
+        }
     })
     before(() => {
         db = knex({
@@ -54,7 +57,7 @@ describe('Testing module', (() => {
         description: 'Course 1 description',
         category: {
             name: 'Category 1',
-            children: {
+            childCategories: {
                 '#id': 'cat2',
                 name: 'Category 2'
             }
@@ -65,7 +68,7 @@ describe('Testing module', (() => {
         category: {'#ref': 'cat2'}
     }], {allowRefs: true}))
     it('should populate database', async () => {
-        const Courses = await Course.query().select().withGraphFetched('category.children')
+        const Courses = await Course.query().select().withGraphFetched('category.childCategories')
         expect(Courses[0]).to.have.all.keys('id', 'name', 'category', 'categoryId', 'description', 'createdAt', 'updatedAt')
         expect(Courses[1]).to.have.all.keys('id', 'name', 'category', 'categoryId', 'description', 'createdAt', 'updatedAt')
         expect(Courses[2]).to.not.exist
@@ -74,18 +77,13 @@ describe('Testing module', (() => {
         const models = [Category, Course]
         schemaBuilder = new index.SchemaBuilder(models)
     })
-    it('should build schema',()=>{
-        const {typeDefs,resolvers} = schemaBuilder.build()
-        expect(typeDefs).to.include(`type Course{
-id: Int
-name: String
-description: String
-categoryId: Int
-category: Category
-}
-`).and.not.include(`createCategory`)
-        console.log(resolvers)
+    it('should build schema', () => {
+        const {typeDefs, resolvers} = schemaBuilder.build()
+        expect(typeDefs).to.not.include(`createCategory`)
+        // console.log(resolvers)
     })
+    //todo rest of the test
+
     // it('should query',()=>{
     //     // makeExecutableSchema(schemaBuilder.build())
     //     buildSchema(schemaBuilder.build().typeDefs)
