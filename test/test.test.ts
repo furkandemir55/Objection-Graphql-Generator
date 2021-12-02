@@ -9,13 +9,14 @@ import CustomModel from "../lib/CustomModel";
 import * as fs from "fs";
 import index from '../index'
 import SchemaBuilder from "../lib/SchemaBuilder";
-import Objection from "objection";
+import {graphql, GraphQLSchema} from "graphql";
+import {makeExecutableSchema} from "@graphql-tools/schema";
 
 //
 // console.log(a.build())
 
 describe('Testing module', (() => {
-    let db: Knex, schemaBuilder: SchemaBuilder, models: (typeof CustomModel)[];
+    let db: Knex, schemaBuilder: SchemaBuilder, models: (typeof CustomModel)[],build: any, gqlSchema:any
     before(() => {
         try {
             fs.unlinkSync(join(os.tmpdir(), 'graphqltest2.db'))
@@ -78,9 +79,22 @@ describe('Testing module', (() => {
         schemaBuilder = new index.SchemaBuilder(models)
     })
     it('should build schema', () => {
-        const {typeDefs, resolvers} = schemaBuilder.build()
-        expect(typeDefs).to.not.include(`createCategory`)
+        build = schemaBuilder.build()
+        expect(build.typeDefs).to.not.include(`createCategory`)
         // console.log(resolvers)
+    })
+    it('should add schema to graphql', () => {
+        gqlSchema = new GraphQLSchema(makeExecutableSchema(build))
+        console.log(gqlSchema)
+        // @ts-ignore
+        // graphql({schema:gqlSchema},'query{course{id}}').then(r=>{
+        //     console.log(r)
+        // })
+    })
+    describe('Testing queries', () => {
+        it('should query single with relation', () => {
+
+        })
     })
     //todo rest of the test
 
