@@ -5,8 +5,6 @@ import CustomModel from "./CustomModel";
 import graphqlFields from "graphql-fields";
 
 const getKeys = Object.keys as <T extends object>(obj: T) => Array<keyof T>
-
-
 export const handleOptions: (builder: SchemaBuilder, options?: Options) => void = (builder, options) => {
     const handleQueryFunctions: (customFunctions?: CustomQueryFunctions) => void = customFunctions => {
         if (customFunctions) {
@@ -45,16 +43,13 @@ export const handleOptions: (builder: SchemaBuilder, options?: Options) => void 
     handleMutationFunctions(mutationFunction)
     handleOtherOptions(otherOptions)
 }
-
-export const customFunctionHandler = async (func?: Function, ...params: any[]) => {
+export const customFunctionHandler:(func?: Function, ...params: any[]) => Promise<any> = async (func, ...params) => {
     if (!func) return
     if (func.constructor.name === 'AsyncFunction') {
         return await func(...params)
     }
     return func(...params)
 }
-
-
 const modifiers: Objection.Modifiers = {
     selectModifier(builder, args) {
         builder.select(args)
@@ -92,13 +87,18 @@ const modifiers: Objection.Modifiers = {
     whereNotInModifier(builder, args) {
         builder.whereNotIn(args.field, args.values)
     },
+    orderByModifier(builder, args){
+        builder.orderBy(args.value, 'asc')
+    },
+    orderByDescModifier(builder, args){
+        builder.orderBy(args.value, 'desc')
+    },
 }
-
 export const handleRelationMain = (builder: Objection.QueryBuilder<CustomModel>, args: any) => {
     const handleRelationField = (builder: Objection.QueryBuilder<CustomModel>, key: string, value: any) => {
-        if (key.endsWith('In')) return builder.whereIn(key.split('In').slice(0, -1).join(''), value)
+        if (key.endsWith('In') && !key.endsWith('NotIn')) return builder.whereIn(key.split('In').slice(0, -1).join(''), value)
         else if (key.endsWith('NotIn')) return builder.whereNotIn(key.split('NotIn').slice(0, -1).join(''), value)
-        else if (key.endsWith('Eq')) return builder.where(key.split('Eq').slice(0, -1).join(''), value)
+        else if (key.endsWith('Eq') && !key.endsWith('NotEq')) return builder.where(key.split('Eq').slice(0, -1).join(''), value)
         else if (key.endsWith('NotEq')) return builder.whereNot(key.split('NotEq').slice(0, -1).join(''), value)
         else if (key.endsWith('Gt')) return builder.where(key.split('Gt').slice(0, -1).join(''), '>', value)
         else if (key.endsWith('Gte')) return builder.where(key.split('Gte').slice(0, -1).join(''), '>=', value)
@@ -107,18 +107,22 @@ export const handleRelationMain = (builder: Objection.QueryBuilder<CustomModel>,
         else if (key.endsWith('Like')) return builder.where(key.split('Like').slice(0, -1).join(''), 'like', value)
         else if (key.endsWith('LikeNoCase')) return builder.where(key.split('LikeNoCase').slice(0, -1).join(''), 'iLike', value)
         else if (key.endsWith('IsNull')) return builder.whereNull(key.split('IsNull').slice(0, -1).join(''))
+        else if (key === 'orderBy') return builder.orderBy(value, 'asc')
+        else if (key === 'orderByDesc') return builder.orderBy(value, 'desc')
     }
 
     for (const [key, value] of Object.entries<any>(args)) {
         handleRelationField(builder, key, value)
     }
 }
-
 export const queryResolver = (builder: Objection.QueryBuilder<CustomModel>, info: any) => {
     const query = graphqlFields(info, {}, {processArguments: true, excludedFields: ['__typename']})
     const handleRelationField = (modifyArray: any[], field: any) => {
         const key = Object.keys(field)[0]
-        if (key.endsWith('In')) return modifyArray.push((query: any) => query.modify('whereInModifier', {
+
+        console.log(key)
+
+        if (key.endsWith('In') && !key.endsWith('NotIn')) return modifyArray.push((query: any) => query.modify('whereInModifier', {
             field: key.split('In').slice(0, -1).join(''),
             values: field[key].value
         }))
@@ -126,7 +130,7 @@ export const queryResolver = (builder: Objection.QueryBuilder<CustomModel>, info
             field: key.split('NotIn').slice(0, -1).join(''),
             values: field[key].value
         }))
-        else if (key.endsWith('Eq'))
+        else if (key.endsWith('Eq') && !key.endsWith('NotEq'))
             return modifyArray.push((query: any) => query.modify('whereEqModifier', {
                 field: key.split('Eq').slice(0, -1).join(''),
                 value: field[key].value
@@ -163,6 +167,14 @@ export const queryResolver = (builder: Objection.QueryBuilder<CustomModel>, info
             field: key.split('IsNull').slice(0, -1).join(''),
             value: field[key].value
         }))
+        else if (key === 'orderBy') return modifyArray.push((query: any) => query.modify('orderByModifier', {
+            field: 'orderBy',
+            value: field[key].value
+        }))
+        else if (key === 'orderByDesc') return modifyArray.push((query: any) => query.modify('orderByDescModifier', {
+            field: 'orderByDesc',
+            value: field[key].value
+        }))
     }
     const handleRelation = (graph: any, ayo: any) => {
         graph.$modify = []
@@ -171,6 +183,7 @@ export const queryResolver = (builder: Objection.QueryBuilder<CustomModel>, info
             if (!Object.values(value).length) selectFields.push(key)
             else if (key === '__arguments') {
                 value.forEach((k: any) => {
+                    console.log(k)
                     handleRelationField(graph.$modify, k)
                 })
             } else {
@@ -187,8 +200,6 @@ export const queryResolver = (builder: Objection.QueryBuilder<CustomModel>, info
     }
     return builder.withGraphFetched(graph).modifiers(modifiers)
 }
-
-
 export const buildTypeDefs = (field: string, relatedModelName: string, fields: JSONSchema, relationType: RelationType) => {
     const resolveType = (type: string) => {
         if (type === 'string') return 'String'
@@ -207,6 +218,8 @@ export const buildTypeDefs = (field: string, relatedModelName: string, fields: J
             args += modifier.array ? `${key}${modifier.value}: [${type}], ` : `${key}${modifier.value}: ${type}, `
         })
     }
+    args += `orderBy: String, orderByDesc: String` //todo orderby fields only
+
     if (relationType === Model.HasManyRelation || relationType === Model.ManyToManyRelation) return `
 ${field}(${args}): [${relatedModelName}]`
     return `
@@ -232,18 +245,16 @@ export const builderQueryTypeDefs = (fields: JSONSchema, relatedModelName: strin
             args += modifier.array ? `${key}${modifier.value}: [${type}], ` : `${key}${modifier.value}: ${type}, `
         })
     }
+    args += `orderBy: String, orderByDesc: String` //todo orderby fields only
     return `
 ${camelCaseName}(${args}): ${relatedModelName}
 ${camelCaseName}s(${args}): [${relatedModelName}]
 `
 
 }
-
-
 export function isSchema(arg: any): arg is JSONSchema {
     return true
 }
-
 export const getRegularFields = (model: typeof CustomModel, customFields?: { [key: string]: JSONSchema }) => {
     const fields: { [key: string]: JSONSchema } = {}
     if (model.jsonSchema && model.jsonSchema.properties)

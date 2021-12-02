@@ -1,11 +1,11 @@
 {
   "name": "objection-graphql-generator",
-  "version": "0.0.44.1",
+  "version": "0.0.45",
   "description": "Objection graphql schema generator",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "prebuild": "mocha -r ts-node/register test/test.ts --exit",
+    "prebuild": "mocha -r ts-node/register test/*.test.ts --exit",
     "build": "tsc",
     "prepublish": "npm run build"
   },
